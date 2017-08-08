@@ -1,0 +1,202 @@
+<link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons1.css">
+
+<style>
+.branding-below {
+  bottom: 56px;
+  top: 0;
+}
+
+</style>
+<dialog id="sheetNameDialog">
+    <section>
+      <p>A sheet with the name <b id="curr-sheet-name"></b> already exists. Please enter another name.</p>
+      <p><label for="shet-name">Sheet Name:</label>
+      <input type="text" id="sheet-name" value="" style="width: 180px"/>
+    </section>
+    <menu>
+      <button id="create-button" class="create">Create</button>
+      <button id="cancel-button" type="reset">Cancel</button>
+    </menu>
+</dialog>
+
+<div class="sidebar branding-below">
+  <div class="block">
+    <label for="initial-spot">
+      <b>Initial Spot</b></label>
+    <input type="text" id="initial-spot" value="1.3000" style="width: 50px"/>
+  </div>
+
+  <div class="block">
+    <label for="tick-time">
+      <b>Time Between Ticks (sec)</b></label>
+    <input type="text" id="tick-time" value="1" style="width: 50px"/>
+  </div>
+
+  <div class="block">
+    <label for="spot-increment">
+      <b>Spot Increment</b></label>
+    <input type="text" id="spot-increment" value="0.001" style="width: 50px"/>
+  </div>
+
+  <div class="block">
+    <label for="spread">
+      <b>Bid-offer Spread</b></label>
+    <input type="text" id="spread" value="0.003" style="width: 50px"/>
+  </div>
+  
+  <div class="block">
+    <label for="sell-prob">
+      <b>Market Buy Prob</b></label>
+    <input type="text" id="buy-prob" value="20" style="width: 50px"/>
+  </div>
+  
+  <div class="block">
+    <label for="sell-prob">
+      <b>Market Sell Prob</b></label>
+    <input type="text" id="sell-prob" value="20" style="width: 50px"/>
+  </div>
+  
+  <div class="block">
+    <input type="checkbox" id="price-taker">
+    <label for="price-taker">
+      Simulate price takers</label>
+  </div>
+
+ <div class="block">
+    <button id="new-button" class="create" enabled>New</button>
+    <button id="startstop-button" class="action" data-started="false">Start</button>
+    <button id="clear-button" class="action">Clear</button>
+  </div>
+  
+  <div class="block">
+    <button id="buy-button" class="action" disabled>Buy</button>
+    <button id="sell-button" class="action" disabled>Sell</button>
+  </div>
+</div>
+
+<div class="sidebar bottom">
+  <span class="gray">
+    Simple trading simulator</span>
+</div>
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+
+<script>
+var orders = [];
+
+function getParams() {
+   return {
+       initialSpot: $("#initial-spot").val(),
+       tickTime: $("#tick-time").val(),
+       spotIncrement: $("#spot-increment").val(),
+       initialSpot: $("#initial-spot").val(),
+       spread: $("#spread").val(),
+       buyProb: $("#buy-prob").val(),
+       sellProb: $("#sell-prob").val(),
+       priceTakers: $("#price-taker").is(":checked")
+      }
+}
+$("#cancel-button").click(function() {
+   $("#sheetNameDialog")[0].close();
+});
+$("#create-button").click(function() {
+   var sheetName = $("#sheet-name").val();
+   google.script.run.withSuccessHandler(onStarted)
+     .withFailureHandler(onFailed)
+     .startSim(getParams(), sheetName);
+   $("#sheetNameDialog")[0].close();
+});
+
+var onStarted = function() {
+     console.log("started");
+     $("#new-button").prop("disabled", true);
+     $("#startstop-button").prop("disabled", false);
+     $("#clear-button").prop("disabled", false);
+  }
+var onFailed = function(e) {
+  console.log("start failed: "+ e.message);
+  console.log(e.stack);
+  // TODO find better solution to work out the sheet name
+  var tmp = e.message.replace(/^[^"]+"/, '');
+  var sheetName = tmp.replace(/".*/, '');
+  $("#curr-sheet-name").html(sheetName);
+  $("#sheet-name").val(sheetName);
+  $("#sheetNameDialog")[0].showModal();
+}
+  
+$("#new-button").click(function() {
+  console.log("new clicked");
+  
+  google.script.run.withSuccessHandler(onStarted)
+     .withFailureHandler(onFailed)
+     .startSim(getParams(), null);
+});
+
+function triggerTick() {
+   var tickOk = function(e) {
+      var delay = parseInt($("#tick-time").val())*1000;
+      setTimeout(triggerTick, delay);
+   }
+   var tickFail = function(e) {
+      console.log("tick on server failed", e);
+      $("#startstop-button").data("started", false);
+      $("#startstop-button").html("Start");
+   }
+   if($("#startstop-button").data("started")) {
+      var order = null;
+      if(orders.length!=0) {
+         order = orders.shift();
+      }
+      google.script.run.withSuccessHandler(tickOk)
+          .withFailureHandler(tickFail)
+          .marketTick(order);
+   }
+}
+$("#startstop-button").click(function() {
+   console.log("startstop button clicked, "+$("#startstop-button").data("started"));
+   if($("#startstop-button").data("started")) {
+      $("#startstop-button").data("started", false);
+      $("#startstop-button").html("Start");
+      $("#buy-button").prop("disabled", true);
+      $("#sell-button").prop("disabled", true);
+      $("#new-button").prop("disabled", false);
+    } else {
+      var paramOk = function() {
+        $("#buy-button").prop("disabled", false);
+        $("#sell-button").prop("disabled", false);
+        $("#startstop-button").data("started", true);
+        $("#startstop-button").html("Stop");
+        $("#new-button").prop("disabled", true);
+        triggerTick();
+      }
+      var paramFail = function(e) {
+         console.log("update params failed", e);
+      }
+      var params = getParams();
+      console.log(params);
+      google.script.run.withSuccessHandler(paramOk)
+          .withFailureHandler(paramFail)
+          .updateParams(params);
+   }
+});
+
+$("#clear-button").click(function() {
+    var clearFail = function(e) {
+       console.log("clear failed", e);
+    }
+    google.script.run
+    .withFailureHandler(clearFail)
+    .clear();
+});
+
+function buyFn() {
+   orders.push("buy");
+}
+$("#buy-button").click(buyFn);
+
+function sellFn() {
+   orders.push("sell");
+}
+$("#sell-button").click(sellFn);
+
+</script>
