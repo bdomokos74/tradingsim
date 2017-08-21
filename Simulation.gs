@@ -9,6 +9,14 @@ function onOpen() {
     .createAddonMenu()
     .addItem('Start', 'showSidebar')
     .addToUi();
+  
+  SpreadsheetApp.getUI()
+      .createMenu('Tradingsim')
+      .addItem('Start', 'doit')
+}
+
+function doit() {
+  marketTick('sell');
 }
 
 function showSidebar() {
@@ -28,11 +36,11 @@ function createNewSheet(sheetName) {
   return sheet;
 }
   
-function startSim(params, sheetName)
+function createNew(params, sheetName)
 {
-    var simParams = new SimParams(params);
-    Logger.log("Start called: "+JSON.stringify(simParams));
-    simParams.update();
+    var simParams = new SimParams();
+    simParams.loadAll(params);
+    simParams.saveAll();
     var sheet = createNewSheet(sheetName);
     SpreadsheetApp.setActiveSheet(sheet);
     var varTitles = [["Step"],
@@ -54,8 +62,9 @@ function startSim(params, sheetName)
 }
 
 function updateParams(params) {
-  var simParams = new SimParams(params);
-  simParams.update();
+  var simParams = new SimParams();
+  simParams.loadAll(params);
+  simParams.saveAll();
 }
 
 function clear() {
@@ -65,13 +74,13 @@ function clear() {
     
 function marketTick(order) {
   try {
-    var marketParams = new SimParams();
+    var simParams = new SimParams();
+    simParams.loadAll();
     var marketData = new MarketData();
-
-    marketData.load();
-    marketData.saveStats();
+    marketData.loadAll();
+    marketData.pushData();
     
-    var spotInc = marketParams.spotIncrement;
+    var spotInc = simParams.spotIncrement;
     if(Math.random()<0.5) 
     {
       spotInc = -spotInc;
@@ -81,8 +90,8 @@ function marketTick(order) {
     marketData.spot += spotInc;
     marketData.step += 1;  
     
-    marketData.bid = marketData.spot-marketParams.spread/2;
-    marketData.offer = marketData.spot+marketParams.spread/2;
+    marketData.bid = marketData.spot-simParams.spread/2;
+    marketData.offer = marketData.spot+simParams.spread/2;
 
     if(order !== null) {
       if(order==='buy') {
@@ -90,28 +99,26 @@ function marketTick(order) {
       } else if(order==='sell') {
         marketData.position -= 1;
       }
-      marketData.pnl = marketData.pnl-marketParams.spread/2;
+      marketData.pnl = marketData.pnl-simParams.spread/2;
     }
-
-    if(marketParams.priceTakers) {
+    if(simParams.priceTakers) {
       var marketSignal = Math.random();
-      if(marketSignal < marketParams.buyProb/100) {
+      if(marketSignal < simParams.buyProb/100) {
         marketData.position -=1;
-        marketData.pnl += marketParams.spread/2;
+        marketData.pnl += simParams.spread/2;
         marketData.message = "Market buys";
-      } else if(marketSignal > marketParams.buyProb/100 && marketSignal< marketParams.buyProb/100+marketParams.sellProb/100) {
+      } else if(marketSignal > simParams.buyProb/100 && marketSignal< simParams.buyProb/100+simParams.sellProb/100) {
         marketData.position += 1;
-        marketData.pnl += marketParams.spread/2;
+        marketData.pnl += simParams.spread/2;
         marketData.message = "Market sells";
       } else {
         marketData.message = "";
       }
     }
     
-    marketData.update();
+    marketData.saveAll();
   } catch(e) {
-    Logger.log(e);
-    return false;
+    //Logger.log(e);
+    throw e;
   }
 }
-

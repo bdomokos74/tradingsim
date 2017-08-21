@@ -45,7 +45,7 @@
   </div>
   
   <div class="block">
-    <label for="sell-prob">
+    <label for="buy-prob">
       <b>Market Buy Prob</b></label>
     <input type="text" id="buy-prob" value="20" style="width: 50px"/>
   </div>
@@ -89,7 +89,6 @@ function getParams() {
        initialSpot: $("#initial-spot").val(),
        tickTime: $("#tick-time").val(),
        spotIncrement: $("#spot-increment").val(),
-       initialSpot: $("#initial-spot").val(),
        spread: $("#spread").val(),
        buyProb: $("#buy-prob").val(),
        sellProb: $("#sell-prob").val(),
@@ -108,7 +107,6 @@ $("#create-button").click(function() {
 });
 
 var onStarted = function() {
-     console.log("started");
      $("#new-button").prop("disabled", true);
      $("#startstop-button").prop("disabled", false);
      $("#clear-button").prop("disabled", false);
@@ -124,12 +122,10 @@ var onFailed = function(e) {
   $("#sheetNameDialog")[0].showModal();
 }
   
-$("#new-button").click(function() {
-  console.log("new clicked");
-  
+$("#new-button").click(function() {  
   google.script.run.withSuccessHandler(onStarted)
      .withFailureHandler(onFailed)
-     .startSim(getParams(), null);
+     .createNew(getParams(), null);
 });
 
 function triggerTick() {
@@ -153,7 +149,6 @@ function triggerTick() {
    }
 }
 $("#startstop-button").click(function() {
-   console.log("startstop button clicked, "+$("#startstop-button").data("started"));
    if($("#startstop-button").data("started")) {
       $("#startstop-button").data("started", false);
       $("#startstop-button").html("Start");
@@ -173,7 +168,6 @@ $("#startstop-button").click(function() {
          console.log("update params failed", e);
       }
       var params = getParams();
-      console.log(params);
       google.script.run.withSuccessHandler(paramOk)
           .withFailureHandler(paramFail)
           .updateParams(params);
@@ -185,8 +179,8 @@ $("#clear-button").click(function() {
        console.log("clear failed", e);
     }
     google.script.run
-    .withFailureHandler(clearFail)
-    .clear();
+      .withFailureHandler(clearFail)
+      .clear();
 });
 
 function buyFn() {
